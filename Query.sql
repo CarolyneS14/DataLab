@@ -1,8 +1,8 @@
-  --# Criei nova tabela (produto)
-  --## Exclui duplicados (ROW_NUMBER)
-  --## Troquei caracteres especiais (REGEXP_REPLACE)
-  --## Alterei valores nulos na coluna descricao (COALESCE)
-  --## Calcular quartil das variaveis numericas (NTILE)
+  # Criei nova tabela (produto)
+  ## Exclui duplicados (ROW_NUMBER)
+  ## Troquei caracteres especiais (REGEXP_REPLACE)
+  ## Alterei valores nulos na coluna descricao (COALESCE)
+  ## Calcular quartil das variaveis numericas (NTILE)
 
 CREATE OR REPLACE TABLE `amazon-sale.data.produto` AS
 WITH produto AS (
@@ -27,6 +27,7 @@ WITH produto AS (
     NTILE(4) OVER (ORDER BY discounted_price) AS quartil_preco_com_desconto, 
     CAST(actual_price AS INT64) AS preco_atual,
     NTILE(4) OVER (ORDER BY actual_price) AS quartil_preco_atual, 
+    CAST(discount_percentage * 100 AS INT) AS desconto_inteiro,
     discount_percentage AS porcentagem_desconto,
     NTILE(4) OVER (ORDER BY discount_percentage) AS quartil_porcent_desconto,
     actual_price - discounted_price AS valor_desconto,
@@ -37,7 +38,7 @@ WITH produto AS (
 categoria AS (
   SELECT
     product_id,
-    REGEXP_REPLACE(category, r'[^a-zA-Z0-9 ]', '') AS categoria
+    REGEXP_REPLACE(category, r'[^a-zA-Z0-9 ]', '') AS categoria,
   FROM `amazon-sale.data.product`
 )
 SELECT 
@@ -49,6 +50,7 @@ SELECT
   p.quartil_preco_com_desconto,
   p.preco_atual,
   p.quartil_preco_atual,
+  p.desconto_inteiro,
   p.porcentagem_desconto,
   p.quartil_porcent_desconto,
   p.valor_desconto,
@@ -59,7 +61,7 @@ JOIN categoria c ON p.id_produto = c.product_id
 WHERE p.row_num = 1;
 
 
-  --## Verificar nulos na tabela nova (produto)
+  ## Verificar nulos na tabela nova (produto)
 -- Verificar quantidade de categorias
 SELECT 
 DISTINCT categoria_produtos
@@ -82,7 +84,6 @@ GROUP BY
     id_produto
 HAVING 
     COUNT(*) > 1;
-
 -- Verificar valores nulos
 SELECT 
     id_produto,
@@ -94,6 +95,7 @@ SELECT
     preco_atual,
     quartil_preco_atual,
     porcentagem_desconto,
+    desconto_inteiro,
     quartil_porcent_desconto,
     valor_desconto,
     quartil_valor_desconto,
@@ -108,15 +110,16 @@ WHERE
     preco_com_desconto IS NULL OR
     preco_atual IS NULL OR
     porcentagem_desconto IS NULL OR
+    desconto_inteiro IS NULL OR
     valor_desconto IS NULL OR
     descricao_produto IS NULL;
 
 
-  --# Criei nova tabela (avaliacao)
-  --## Exclui duplicados (ROW_NUMBER)
-  --## Troquei caracteres especiais (REGEXP_REPLACE)
-  --## Alterei valores nulos na coluna descricao (COALESCE)
-  --## Calculei os quartis das variaveis numericas (NTILE)
+  # Criei nova tabela (avaliacao)
+  ## Exclui duplicados (ROW_NUMBER)
+  ## Troquei caracteres especiais (REGEXP_REPLACE)
+  ## Alterei valores nulos na coluna descricao (COALESCE)
+  ## Calculei os quartis das variaveis numericas (NTILE)
 CREATE OR REPLACE TABLE `amazon-sale.data.avaliacao` AS
 WITH avaliacao AS (
   SELECT 
@@ -151,7 +154,7 @@ SELECT
 FROM avaliacao
 WHERE row_num = 1; -- Mantém apenas a primeira ocorrência de cada usuário
 
-  --## Verificar nulos na tabela nova (avaliacao)
+  ## Verificar nulos na tabela nova (avaliacao)
 -- Verificar valores duplicados
 SELECT 
     id_avaliacao,
@@ -188,7 +191,7 @@ WHERE
     imagem_produto IS NULL OR
     link_produto IS NULL;
 
-  --## JOIN - Unir as tabelas limpas
+  ## JOIN - Unir as tabelas limpas
 
 CREATE OR REPLACE TABLE `amazon-sale.data.vendas` AS
 WITH produto AS (
@@ -202,6 +205,7 @@ WITH produto AS (
     preco_atual,
     quartil_preco_atual,
     porcentagem_desconto,
+    desconto_inteiro,
     quartil_porcent_desconto,
     valor_desconto,
     quartil_valor_desconto,
@@ -232,7 +236,8 @@ SELECT
   p.preco_com_desconto,
   p.quartil_preco_com_desconto, 
   p.preco_atual,
-  p.quartil_preco_atual,  
+  p.quartil_preco_atual,
+  p.desconto_inteiro,  
   p.porcentagem_desconto,
   p.quartil_porcent_desconto,  
   p.valor_desconto,
@@ -252,7 +257,7 @@ SELECT
 FROM `amazon-sale.data.produto` p
 JOIN avaliacao a ON p.id_produto = a.id_produto;
 
- --## Verificar nulos na tabela unificada (vendas)
+ ## Verificar nulos na tabela unificada (vendas)
 -- Verificar valores duplicados
 SELECT 
     id_avaliacao,
@@ -266,7 +271,7 @@ HAVING
 
 -- Verificar valores nulos
 SELECT 
-  id_usuario, nome_usuario, id_avaliacao, id_produto, classif_do_produto, quartil_classif_do_produto, qtd_votos, quartil_votos, resumo_avaliacao, avaliacao_completa, imagem_produto, link_produto, id_produto, nome_produto, categoria, categoria_produtos, preco_com_desconto, quartil_preco_com_desconto, preco_atual, quartil_preco_atual, porcentagem_desconto, quartil_porcent_desconto, valor_desconto, quartil_valor_desconto, descricao_produto
+  id_usuario, nome_usuario, id_avaliacao, id_produto, classif_do_produto, quartil_classif_do_produto, qtd_votos, quartil_votos, resumo_avaliacao, avaliacao_completa, imagem_produto, link_produto, id_produto, nome_produto, categoria, categoria_produtos, preco_com_desconto, quartil_preco_com_desconto, preco_atual, quartil_preco_atual, porcentagem_desconto, desconto_inteiro, quartil_porcent_desconto, valor_desconto, quartil_valor_desconto, descricao_produto
 FROM 
     `amazon-sale.data.vendas`
 WHERE 
@@ -290,6 +295,7 @@ WHERE
     quartil_preco_atual IS NULL OR
     preco_atual IS NULL OR
     porcentagem_desconto IS NULL OR
+    desconto_inteiro IS NULL OR
     quartil_porcent_desconto IS NULL OR
     valor_desconto IS NULL OR
     quartil_valor_desconto IS NULL OR
@@ -303,7 +309,7 @@ CREATE OR REPLACE TABLE `amazon-sale.data.vendas_segmentada` AS
 WITH vendas_segmentada AS (
   SELECT
     v.*,
-        CASE
+    CASE
       WHEN quartil_classif_do_produto BETWEEN 1 AND 2 THEN 'BAIXA'
       WHEN quartil_classif_do_produto BETWEEN 3 AND 4 THEN 'ALTA'
     END AS segmentacao_classif_do_produto,
@@ -332,7 +338,7 @@ WITH vendas_segmentada AS (
 SELECT *
 FROM vendas_segmentada;
 
---## Aplicar medidas de tendência central
+## Aplicar medidas de tendência central
 SELECT
 MIN(qtd_votos) AS min_votos,
 MAX(qtd_votos) AS max_votos,
@@ -362,24 +368,32 @@ MIN(porcentagem_desconto) AS min_perc_desconto,
 MAX(porcentagem_desconto) AS max_perc_desconto,
 AVG(porcentagem_desconto) AS media_perc_desconto,
 APPROX_QUANTILES(porcentagem_desconto, 100)[SAFE_ORDINAL(50)] AS mediana_perc_desconto,
-STDDEV(porcentagem_desconto) AS desvio_perc_desconto
+STDDEV(porcentagem_desconto) AS desvio_perc_desconto,
+
+MIN(desconto_inteiro) AS min_desconto,
+MAX(desconto_inteiro) AS max_desconto,
+AVG(desconto_inteiro) AS media_desconto,
+APPROX_QUANTILES(desconto_inteiro, 100)[SAFE_ORDINAL(50)] AS mediana_desconto,
+STDDEV(desconto_inteiro) AS desvio_desconto,
 FROM `amazon-sale.data.vendas`; 
 
-  --## Correlação
-CREATE TABLE `amazon-sale.data.correlacao` AS
-WITH corre AS ( 
+  ## Correlação
+
   SELECT
     CORR(porcentagem_desconto, classif_do_produto) AS Hipot1,
     CORR(qtd_votos, classif_do_produto) AS Hipot2
-  FROM `amazon-sale.data.vendas`
-)
-SELECT *
-FROM corre;
+  FROM `amazon-sale.data.vendas_segmentada`
+
 
  SELECT 
 CORR(classif_do_produto, preco_com_desconto),
 CORR(qtd_votos, porcentagem_desconto),
 CORR(qtd_votos, valor_desconto),
 CORR(preco_atual, preco_com_desconto) 
-FROM `amazon-sale.data.vendas`;  
+FROM `amazon-sale.data.vendas_segmentada`;  
   
+
+
+
+
+ 
